@@ -53,3 +53,5 @@ dkms.conf
 ThreadsMonitor.layout
 bin/Debug/ThreadsMonitor
 thread-messages-monitor.depend
+thread-messages-monitor.depend
+thread-messages-monitor.layout

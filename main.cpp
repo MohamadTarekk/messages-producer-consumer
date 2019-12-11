@@ -22,11 +22,13 @@ typedef struct collectorObject
 } collectorObject;
 
 /// Threads Handlers
+void* infiniteCounterHandler(void *ptr);
 void* counterHandler(void *ptr);
 void* monitorHandler(void *ptr);
 void* collectorHandler(void *ptr);
 
 /// Global variables
+bool counterRunning;
 bool monitorRunning;
 bool collectorRunning;
 int COUNTER;
@@ -47,6 +49,7 @@ collectorObject OBJ_COLLECTOR;
 /// Functions Prototypes
 void initialize();
 void dispatchMonitors();
+void dispatchInfiniteCounters();
 void dispatchThreads();
 void readInput();
 int generateRandomInt(int low, int high);
@@ -56,8 +59,36 @@ int main()
 {
     initialize();
     dispatchMonitors();
-    dispatchThreads();
+    dispatchInfiniteCounters();
+    //dispatchThreads();
     return 0;
+}
+
+void* infiniteCounterHandler(void *ptr)
+{
+    // initialize thread object
+    counterObject ob = *((counterObject *) ptr);
+    int res;
+    while(counterRunning)
+    {
+        // sleep randomly to simulate random incoming messages
+        milli_sec_sleep(generateRandomInt(1000,4000)); //1 to 4 seconds
+        printf("Counter thread %2d: received a message\n", (ob).id);
+        // get counter value and set counter to 0
+        /* wait if counter is busy*/
+        res = sem_trywait(&SEM_COUNT);
+        if(res != 0)
+        {
+            printf("Counter thread %2d: waiting to write!!!\n", (ob).id);
+            sem_wait(&SEM_COUNT);
+        }
+        /* increment the counter*/
+        COUNTER++;
+        printf("Counter thread %2d: now adding to counter, counter value=%d\n", (ob).id, COUNTER);
+        sem_post(&SEM_COUNT);
+    }
+
+    return NULL;
 }
 
 void* counterHandler(void *ptr)
@@ -72,7 +103,7 @@ void* counterHandler(void *ptr)
     int res = sem_trywait(&SEM_COUNT);
     if(res != 0)
     {
-        printf("Counter thread %2d: waiting to write!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n", (ob).id);
+        printf("Counter thread %2d: waiting to write!!!\n", (ob).id);
         sem_wait(&SEM_COUNT);
     }
     /* increment the counter*/
@@ -85,14 +116,15 @@ void* counterHandler(void *ptr)
 
 void* monitorHandler(void *ptr)
 {
+    int temp;
+    int res;
     while(monitorRunning)
     {
         // sleeping
-        int temp;
-        milli_sec_sleep(generateRandomInt(1000,4000)); //1 to 4 seconds
+        milli_sec_sleep(TIME_INTERVAL * 1000); //1 to 4 seconds
         // get counter value and set counter to 0
         /* wait if counter is busy*/
-        int res = sem_trywait(&SEM_COUNT);
+        res = sem_trywait(&SEM_COUNT);
         if(res != 0)
         {
             printf("Monitor thread: waiting to read the counter\n");
@@ -131,14 +163,15 @@ void* monitorHandler(void *ptr)
 
 void* collectorHandler(void *ptr)
 {
+    int temp;
+    int res;
     while(collectorRunning)
     {
         // sleeping
-        int temp;
         milli_sec_sleep(generateRandomInt(1000,4000)); //1 to 4 seconds
         // read from buffer
         /* wait if buffer is full*/
-        int res = sem_trywait(&SEM_EMPTY);
+        res = sem_trywait(&SEM_EMPTY);
         if(res != 0)
         {
             printf("Collector thread: nothing is in the buffer!\n");
@@ -153,7 +186,7 @@ void* collectorHandler(void *ptr)
         }
         /* finally add new value to buffer*/
         temp = (int) BUFFER.front();
-        printf("Collector thread : reading the value %d from buffer at position 1 of %d\n", temp, BUFFER_POSITION);
+        printf("Collector thread: reading the value %d from buffer at position 1 of %d\n", temp, BUFFER_POSITION);
         BUFFER.pop();
         BUFFER_POSITION--;
         sem_post(&SEM_BUFFER);
@@ -208,6 +241,20 @@ void dispatchMonitors()
     // run collector thread
     collectorRunning = true;
     pthread_create(&COLLECTOR_THREAD, NULL, collectorHandler, (void*) &OBJ_MONITOR);
+}
+
+void dispatchInfiniteCounters()
+{
+    counterRunning = true;
+    int i;
+    for(i = 0 ; i < THREADS_COUNT ; i++)
+    {
+        pthread_create(&MCOUNTERS[i], NULL, infiniteCounterHandler, (void*) &OBJ_MCOUNTERS[i]);
+    }
+    for(i = 0 ; i < THREADS_COUNT ; i++)
+    {
+        pthread_join(MCOUNTERS[i], NULL);
+    }
 }
 
 void dispatchThreads()
