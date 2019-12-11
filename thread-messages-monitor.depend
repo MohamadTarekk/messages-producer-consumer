@@ -1,8 +1,9 @@
 # depslib dependency file v1.0
-1576019317 source:/media/sf_Code_Blocks/thread-messages-monitor/main.cpp
+1576043168 source:/media/sf_Code_Blocks/thread-messages-monitor/main.cpp
 	<iostream>
 	<pthread.h>
 	<semaphore.h>
 	<time.h>
 	<cmath>
+	<queue>
 
